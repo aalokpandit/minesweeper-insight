@@ -95,6 +95,18 @@ function Game() {
     setBoard(finish(b));
   };
 
+  // Middle-button hold: "press" the cell (if hidden) and its hidden, unflagged neighbours
+  const [held, setHeld] = useState<number | null>(null);
+  useEffect(() => {
+    const up = (e: MouseEvent) => { if (e.button === 1) setHeld(null); };
+    window.addEventListener("mouseup", up);
+    return () => window.removeEventListener("mouseup", up);
+  }, []);
+  const pressedSet = useMemo(() => {
+    if (held === null || status === "won" || status === "lost") return new Set<number>();
+    return new Set([held, ...neighbors(held, cfg.w, cfg.h)].filter((n) => !board[n].revealed && board[n].flag !== 1));
+  }, [held, board, cfg, status]);
+
   const toggleFlag = (i: number) => {
     if (status === "won" || status === "lost" || board[i].revealed) return;
     setBoard((prev) => prev.map((c, j) => (j === i ? { ...c, flag: ((c.flag + 1) % 3) as 0 | 1 | 2 } : c)));
@@ -164,7 +176,11 @@ function Game() {
                 return (
                   <button key={i} style={style} title={hasP ? `Mine probability: ${(p! * 100).toFixed(1)}%` : undefined}
                     className={`flex items-center justify-center font-mono font-bold leading-none transition-colors duration-150 ${
-                      c.revealed ? (c.exploded ? "bg-destructive" : "bg-background") : "bg-secondary hover:brightness-110 active:brightness-90"}`}
+                      c.revealed ? (c.exploded ? "bg-destructive" : "bg-background") : pressedSet.has(i) ? "bg-background scale-95" : "bg-secondary hover:brightness-110 active:brightness-90"}`}
+                    onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); setHeld(i); } }}
+                    onMouseEnter={() => { if (held !== null) setHeld(i); }}
+                    onMouseUp={(e) => { if (e.button === 1) { setHeld(null); if (board[i].revealed) reveal(i); } }}
+                    onAuxClick={(e) => e.preventDefault()}
                     onPointerDown={(e) => {
                       if (e.pointerType !== "touch") return;
                       press.current = { long: false, touch: true, t: window.setTimeout(() => { press.current.long = true; toggleFlag(i); navigator.vibrate?.(30); }, 400) };
