@@ -168,7 +168,7 @@ function Game() {
             <span className="font-mono text-2xl font-bold text-destructive" aria-label="Time">{pad(time)}</span>
           </div>
           <div className="overflow-auto">
-            <TooltipProvider delayDuration={250} skipDelayDuration={100}>
+            <TooltipProvider delayDuration={1000} skipDelayDuration={0}>
             <div className="grid select-none gap-px bg-border" style={{ gridTemplateColumns: `repeat(${cfg.w}, ${cellSize}px)` }}
               onContextMenu={(e) => e.preventDefault()}>
               {board.map((c, i) => {
