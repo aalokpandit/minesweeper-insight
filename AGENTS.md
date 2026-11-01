@@ -9,4 +9,4 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- Keep probability explanations derived from the exact solver's cached counting evidence, not a second solver or hidden mine positions, so displayed reasoning matches the heatmap without extra search on hover.
+- Keep probability explanations derived from the exact solver's cached counting evidence, not a second solver or hidden mine positions; assemble reasoning and scenario rows only for a cell whose dwell timer expires, so clicks calculate the heatmap without deriving every explanation.
