@@ -205,7 +205,7 @@ function Game() {
                 return explanation ? (
                   <Tooltip key={i}>
                     <TooltipTrigger asChild>{tile}</TooltipTrigger>
-                    <TooltipContent side="right" sideOffset={10} collisionPadding={12}
+                    <TooltipContent side="bottom" sideOffset={10} collisionPadding={12}
                       className="w-[420px] max-w-[calc(100vw-24px)] border border-border bg-popover p-4 text-popover-foreground shadow-lg">
                       <ProbabilityExplanationContent explanation={explanation} index={i} width={cfg.w} />
                     </TooltipContent>
