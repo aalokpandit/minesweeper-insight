@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type Cell, emptyBoard, placeMines, revealFrom, neighbors, computeProbabilities } from "@/lib/minesweeper";
+import { type Cell, emptyBoard, placeMines, revealFrom, neighbors, analyzeProbabilities } from "@/lib/minesweeper";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ProbabilityExplanationContent } from "@/components/probability-explanation";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -57,8 +60,8 @@ function Game() {
     return () => window.removeEventListener("resize", fit);
   }, [cfg.w]);
 
-  const probs = useMemo(
-    () => (learn && status === "playing" ? computeProbabilities(board, cfg.w, cfg.h, cfg.m) : null),
+  const analysis = useMemo(
+    () => (learn && status === "playing" ? analyzeProbabilities(board, cfg.w, cfg.h, cfg.m) : null),
     [learn, status, board, cfg],
   );
 
@@ -165,17 +168,20 @@ function Game() {
             <span className="font-mono text-2xl font-bold text-destructive" aria-label="Time">{pad(time)}</span>
           </div>
           <div className="overflow-auto">
+            <TooltipProvider delayDuration={250} skipDelayDuration={100}>
             <div className="grid select-none gap-px bg-border" style={{ gridTemplateColumns: `repeat(${cfg.w}, ${cellSize}px)` }}
               onContextMenu={(e) => e.preventDefault()}>
               {board.map((c, i) => {
-                const p = probs?.[i];
-                const hasP = p !== undefined && !Number.isNaN(p) && !c.revealed;
-                const pct = hasP ? `${Math.round(p! * 100)}%` : "";
+                const p = analysis?.probabilities[i];
+                const hasP = p !== undefined && Number.isFinite(p) && !c.revealed;
+                const pct = hasP && p !== undefined ? `${Math.round(p * 100)}%` : "";
+                const explanation = hasP ? analysis?.explain(i) : null;
                 const style: React.CSSProperties = { width: cellSize, height: cellSize, fontSize: cellSize * 0.5 };
-                if (hasP) style.backgroundColor = `hsl(${120 * (1 - p!)} 70% 45%)`;
-                return (
-                  <button key={i} style={style} title={hasP ? `Mine probability: ${(p! * 100).toFixed(1)}%` : undefined}
-                    className={`flex items-center justify-center font-mono font-bold leading-none transition-colors duration-150 ${
+                if (hasP && p !== undefined) style.backgroundColor = `hsl(${120 * (1 - p)} 70% 45%)`;
+                const tile = (
+                  <Button variant="ghost" style={style}
+                    aria-label={`Row ${Math.floor(i / cfg.w) + 1}, column ${i % cfg.w + 1}${c.revealed ? c.mine ? ", mine" : `, revealed ${c.adj}` : c.flag === 1 ? ", flagged" : ", unopened"}${hasP ? `, ${pct} mine chance` : ""}`}
+                    className={`flex rounded-none p-0 items-center justify-center font-mono font-bold leading-none transition-colors duration-150 ${
                       c.revealed ? (c.exploded ? "bg-destructive" : "bg-background") : pressedSet.has(i) ? "bg-background scale-95" : "bg-secondary hover:brightness-110 active:brightness-90"}`}
                     onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); setHeld(i); } }}
                     onMouseEnter={() => { if (held !== null) setHeld(i); }}
@@ -194,10 +200,20 @@ function Game() {
                       : c.flag === 1 ? (status === "lost" && !c.mine ? "❌" : "🚩")
                       : c.flag === 2 ? <span className="text-foreground">?</span>
                       : hasP && showText ? <span className="text-[0.55em] text-primary-foreground drop-shadow">{pct}</span> : null}
-                  </button>
+                  </Button>
                 );
+                return explanation ? (
+                  <Tooltip key={i}>
+                    <TooltipTrigger asChild>{tile}</TooltipTrigger>
+                    <TooltipContent side="right" sideOffset={10} collisionPadding={12}
+                      className="w-[420px] max-w-[calc(100vw-24px)] border border-border bg-popover p-4 text-popover-foreground shadow-lg">
+                      <ProbabilityExplanationContent explanation={explanation} index={i} width={cfg.w} />
+                    </TooltipContent>
+                  </Tooltip>
+                ) : <span key={i} className="contents">{tile}</span>;
               })}
             </div>
+            </TooltipProvider>
           </div>
         </div>
 
