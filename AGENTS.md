@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep probability explanations derived from the exact solver's cached counting evidence, not a second solver or hidden mine positions, so displayed reasoning matches the heatmap without extra search on hover.
