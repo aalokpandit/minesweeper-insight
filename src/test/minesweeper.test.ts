@@ -1,7 +1,44 @@
 import { describe, it, expect } from "vitest";
-import { emptyBoard, placeMines, neighbors, computeProbabilities } from "@/lib/minesweeper";
+import { emptyBoard, placeMines, neighbors, computeProbabilities, analyzeProbabilities } from "@/lib/minesweeper";
 
 describe("minesweeper", () => {
+  it("explains two mines among two unopened neighbours as certain mines", () => {
+    const b = emptyBoard(3, 1);
+    b[1] = { mine: false, revealed: true, flag: 0, adj: 2 };
+    const e = analyzeProbabilities(b, 3, 1, 2).explain(0);
+    expect(e?.probability).toBe(1);
+    expect(e?.clues).toEqual([{ index: 1, mines: 2, hidden: 2 }]);
+    expect(e?.scenarios[0].conditional).toBe(1);
+  });
+
+  it("explains overlapping clues using full-board combinatorial weights", () => {
+    // A,1,B,1,C,D,E: B alone leaves one mine in D/E (2 ways),
+    // A+C leaves no mine in D/E (1 way). B is therefore 2/3, not 1/2.
+    const b = emptyBoard(7, 1);
+    b[1] = { mine: false, revealed: true, flag: 0, adj: 1 };
+    b[3] = { mine: false, revealed: true, flag: 0, adj: 1 };
+    const analysis = analyzeProbabilities(b, 7, 1, 2);
+    const e = analysis.explain(2);
+    expect(e?.probability).toBeCloseTo(2 / 3);
+    expect(e?.scenarios.map((s) => s.mines)).toEqual([1, 2]);
+    expect(e?.scenarios[0].likelihood).toBeCloseTo(2 / 3);
+    expect(e?.scenarios[1].likelihood).toBeCloseTo(1 / 3);
+    expect(e?.scenarios.reduce((sum, s) => sum + s.contribution, 0)).toBeCloseTo(analysis.probabilities[2]);
+    const interior = analysis.explain(5);
+    expect(interior?.interiorCells).toBe(2);
+    expect(interior?.probability).toBeCloseTo(1 / 3);
+    expect(interior?.scenarios.reduce((sum, s) => sum + s.contribution, 0)).toBeCloseTo(1 / 3);
+    expect(analysis.explain(1)).toBeNull();
+  });
+
+  it("does not trust flags or consult hidden mines for explanations", () => {
+    const b = emptyBoard(3, 1);
+    b[1] = { mine: false, revealed: true, flag: 0, adj: 1 };
+    const initial = analyzeProbabilities(b, 3, 1, 1).explain(0);
+    b[0].flag = 1;
+    b[0].mine = true;
+    expect(analyzeProbabilities(b, 3, 1, 1).explain(0)).toEqual(initial);
+  });
   it("first click keeps the 3x3 zone mine-free", () => {
     for (let t = 0; t < 50; t++) {
       const b = placeMines(emptyBoard(9, 9), 9, 9, 10, 40);

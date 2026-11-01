@@ -35,7 +35,8 @@ export function placeMines(board: Cell[], w: number, h: number, mines: number, s
 export function revealFrom(b: Cell[], w: number, h: number, start: number): Cell[] {
   const stack = [start];
   while (stack.length) {
-    const i = stack.pop()!;
+    const i = stack.pop();
+    if (i === undefined) break;
     const c = b[i];
     if (c.revealed || c.flag === 1) continue;
     c.revealed = true;
@@ -63,7 +64,26 @@ function convolve(a: number[], b: number[]): number[] {
  * Exact mine probability for every unrevealed cell (NaN for revealed).
  * Flags are treated as unknown (player guesses are not trusted).
  */
-export function computeProbabilities(b: Cell[], w: number, h: number, totalMines: number): number[] {
+export type ProbabilityScenario = {
+  mines: number;
+  arrangements?: number;
+  mineArrangements?: number;
+  likelihood: number;
+  conditional: number;
+  contribution: number;
+};
+export type ProbabilityExplanation = {
+  probability: number;
+  reason: string;
+  clues: { index: number; mines: number; hidden: number }[];
+  scenarios: ProbabilityScenario[];
+  interior: boolean;
+  interiorCells: number;
+  totalMines: number;
+};
+
+/** Keeps the exact counting evidence so hovering never runs the solver again. */
+export function analyzeProbabilities(b: Cell[], w: number, h: number, totalMines: number) {
   const n = b.length;
   const probs = new Array(n).fill(NaN);
   const constraints: { cells: number[]; need: number }[] = [];
@@ -76,7 +96,11 @@ export function computeProbabilities(b: Cell[], w: number, h: number, totalMines
   const parent = new Map<number, number>();
   const find = (x: number): number => {
     let r = x;
-    while (parent.get(r) !== r) r = parent.get(r)!;
+    while (parent.get(r) !== r) {
+      const next = parent.get(r);
+      if (next === undefined) break;
+      r = next;
+    }
     parent.set(x, r);
     return r;
   };
@@ -88,7 +112,7 @@ export function computeProbabilities(b: Cell[], w: number, h: number, totalMines
   for (const x of parent.keys()) {
     const r = find(x);
     if (!groups.has(r)) groups.set(r, []);
-    groups.get(r)!.push(x);
+    groups.get(r)?.push(x);
   }
   const comps: { cells: number[]; counts: number[]; cellCounts: number[][] }[] = [];
   for (const cellsRaw of groups.values()) {
@@ -100,7 +124,10 @@ export function computeProbabilities(b: Cell[], w: number, h: number, totalMines
     const pos = new Map(order.map((x, i) => [x, i]));
     const m = order.length;
     const varCons: number[][] = order.map(() => []);
-    cons.forEach((c, ci) => c.cells.forEach((x) => varCons[pos.get(x)!].push(ci)));
+    cons.forEach((c, ci) => c.cells.forEach((x) => {
+      const position = pos.get(x);
+      if (position !== undefined) varCons[position].push(ci);
+    }));
     const sum = new Array(cons.length).fill(0);
     const rem = cons.map((c) => c.cells.length);
     const assign = new Array(m).fill(0);
@@ -145,7 +172,8 @@ export function computeProbabilities(b: Cell[], w: number, h: number, totalMines
     total += d * wt[m];
     if (I > 0) interiorMines += d * wt[m] * (totalMines - m) / I;
   });
-  if (total === 0) return probs;
+  const evidence = new Map<number, ProbabilityScenario[]>();
+  if (total === 0) return { probabilities: probs, explain: (_index: number): ProbabilityExplanation | null => null };
   for (const x of interior) probs[x] = interiorMines / total;
   comps.forEach((c, ci) => {
     const others = comps.reduce((acc, o, oi) => (oi === ci ? acc : convolve(acc, o.counts)), [1]);
@@ -154,7 +182,52 @@ export function computeProbabilities(b: Cell[], w: number, h: number, totalMines
       let s = 0;
       for (let k = 0; k < c.counts.length; k++) s += c.cellCounts[k][i] * g[k];
       probs[x] = s / total;
+      evidence.set(x, c.counts.flatMap((count, k) => count && g[k] ? [{
+        mines: k,
+        arrangements: count,
+        mineArrangements: c.cellCounts[k][i],
+        likelihood: count * g[k] / total,
+        conditional: c.cellCounts[k][i] / count,
+        contribution: c.cellCounts[k][i] * g[k] / total,
+      }] : []));
     });
   });
-  return probs;
+  const interiorScenarios = all.flatMap((count, m) => I > 0 && count * wt[m] > 0 ? [{
+    mines: totalMines - m,
+    likelihood: count * wt[m] / total,
+    conditional: (totalMines - m) / I,
+    contribution: count * wt[m] / total * (totalMines - m) / I,
+  }] : []);
+  const explain = (index: number): ProbabilityExplanation | null => {
+    const probability = probs[index];
+    if (probability === undefined || !Number.isFinite(probability)) return null;
+    const direct = constraints.filter((c) => c.cells.includes(index));
+    const forced = direct.find((c) => c.need === 0 || c.need === c.cells.length);
+    const interior = !parent.has(index);
+    let reason: string;
+    if (forced) {
+      const clueIndex = neighbors(index, w, h).find((n) => b[n].revealed && b[n].adj === forced.need &&
+        neighbors(n, w, h).filter((x) => !b[x].revealed).every((x) => forced.cells.includes(x)));
+      const location = clueIndex === undefined ? "A nearby clue" : `The clue at row ${Math.floor(clueIndex / w) + 1}, column ${clueIndex % w + 1}`;
+      reason = forced.need === 0
+        ? `${location} requires no mines among its ${forced.cells.length} unopened neighbours, so this tile is safe.`
+        : `${location} needs ${forced.need} mines and has exactly ${forced.cells.length} unopened neighbours. Every one must be a mine.`;
+    } else if (interior) {
+      reason = `No revealed clue touches this tile. The ${I} tiles outside all clues share the mines left after satisfying the clues. Average the remaining-mine fraction over all compatible arrangements.`;
+    } else {
+      reason = `Nearby clues overlap, so their fractions cannot simply be averaged. Keep only arrangements satisfying every connected clue and the board's total of ${totalMines} mines, then count how often this tile is a mine.${probability === 0 ? " None of those arrangements puts a mine here." : probability === 1 ? " Every one puts a mine here." : ""}`;
+    }
+    return {
+      probability, reason, interior, interiorCells: I, totalMines,
+      clues: neighbors(index, w, h).filter((n) => b[n].revealed && !b[n].mine).map((n) => ({
+        index: n, mines: b[n].adj, hidden: neighbors(n, w, h).filter((x) => !b[x].revealed).length,
+      })),
+      scenarios: interior ? interiorScenarios : evidence.get(index) ?? [],
+    };
+  };
+  return { probabilities: probs, explain };
+}
+
+export function computeProbabilities(b: Cell[], w: number, h: number, totalMines: number): number[] {
+  return analyzeProbabilities(b, w, h, totalMines).probabilities;
 }
