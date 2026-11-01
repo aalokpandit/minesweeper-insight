@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type Cell, emptyBoard, placeMines, revealFrom, neighbors, analyzeProbabilities } from "@/lib/minesweeper";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ProbabilityExplanationContent } from "@/components/probability-explanation";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { CellExplanation } from "@/components/cell-explanation";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -175,7 +175,6 @@ function Game() {
                 const p = analysis?.probabilities[i];
                 const hasP = p !== undefined && Number.isFinite(p) && !c.revealed;
                 const pct = hasP && p !== undefined ? `${Math.round(p * 100)}%` : "";
-                const explanation = hasP ? analysis?.explain(i) : null;
                 const style: React.CSSProperties = { width: cellSize, height: cellSize, fontSize: cellSize * 0.5 };
                 if (hasP && p !== undefined) style.backgroundColor = `hsl(${120 * (1 - p)} 70% 45%)`;
                 const tile = (
@@ -202,14 +201,8 @@ function Game() {
                       : hasP && showText ? <span className="text-[0.55em] text-primary-foreground drop-shadow">{pct}</span> : null}
                   </Button>
                 );
-                return explanation ? (
-                  <Tooltip key={i}>
-                    <TooltipTrigger asChild>{tile}</TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={10} collisionPadding={12}
-                      className="w-[420px] max-w-[calc(100vw-24px)] border border-border bg-popover p-4 text-popover-foreground shadow-lg">
-                      <ProbabilityExplanationContent explanation={explanation} index={i} width={cfg.w} />
-                    </TooltipContent>
-                  </Tooltip>
+                return hasP && analysis ? (
+                  <CellExplanation key={i} analysis={analysis} index={i} width={cfg.w}>{tile}</CellExplanation>
                 ) : <span key={i} className="contents">{tile}</span>;
               })}
             </div>

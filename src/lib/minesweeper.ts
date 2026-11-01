@@ -172,7 +172,7 @@ export function analyzeProbabilities(b: Cell[], w: number, h: number, totalMines
     total += d * wt[m];
     if (I > 0) interiorMines += d * wt[m] * (totalMines - m) / I;
   });
-  const evidence = new Map<number, ProbabilityScenario[]>();
+  const evidence = new Map<number, { counts: number[]; cellCounts: number[][]; position: number; weights: number[] }>();
   if (total === 0) return { probabilities: probs, explain: (_index: number): ProbabilityExplanation | null => null };
   for (const x of interior) probs[x] = interiorMines / total;
   comps.forEach((c, ci) => {
@@ -182,22 +182,9 @@ export function analyzeProbabilities(b: Cell[], w: number, h: number, totalMines
       let s = 0;
       for (let k = 0; k < c.counts.length; k++) s += c.cellCounts[k][i] * g[k];
       probs[x] = s / total;
-      evidence.set(x, c.counts.flatMap((count, k) => count && g[k] ? [{
-        mines: k,
-        arrangements: count,
-        mineArrangements: c.cellCounts[k][i],
-        likelihood: count * g[k] / total,
-        conditional: c.cellCounts[k][i] / count,
-        contribution: c.cellCounts[k][i] * g[k] / total,
-      }] : []));
+      evidence.set(x, { counts: c.counts, cellCounts: c.cellCounts, position: i, weights: g });
     });
   });
-  const interiorScenarios = all.flatMap((count, m) => I > 0 && count * wt[m] > 0 ? [{
-    mines: totalMines - m,
-    likelihood: count * wt[m] / total,
-    conditional: (totalMines - m) / I,
-    contribution: count * wt[m] / total * (totalMines - m) / I,
-  }] : []);
   const explain = (index: number): ProbabilityExplanation | null => {
     const probability = probs[index];
     if (probability === undefined || !Number.isFinite(probability)) return null;
@@ -217,12 +204,28 @@ export function analyzeProbabilities(b: Cell[], w: number, h: number, totalMines
     } else {
       reason = `Nearby clues overlap, so their fractions cannot simply be averaged. Keep only arrangements satisfying every connected clue and the board's total of ${totalMines} mines, then count how often this tile is a mine.${probability === 0 ? " None of those arrangements puts a mine here." : probability === 1 ? " Every one puts a mine here." : ""}`;
     }
+    const cached = evidence.get(index);
+    const scenarios: ProbabilityScenario[] = interior
+      ? all.flatMap((count, m) => I > 0 && count * wt[m] > 0 ? [{
+        mines: totalMines - m,
+        likelihood: count * wt[m] / total,
+        conditional: (totalMines - m) / I,
+        contribution: count * wt[m] / total * (totalMines - m) / I,
+      }] : [])
+      : cached ? cached.counts.flatMap((count, k) => count && cached.weights[k] ? [{
+        mines: k,
+        arrangements: count,
+        mineArrangements: cached.cellCounts[k][cached.position],
+        likelihood: count * cached.weights[k] / total,
+        conditional: cached.cellCounts[k][cached.position] / count,
+        contribution: cached.cellCounts[k][cached.position] * cached.weights[k] / total,
+      }] : []) : [];
     return {
       probability, reason, interior, interiorCells: I, totalMines,
       clues: neighbors(index, w, h).filter((n) => b[n].revealed && !b[n].mine).map((n) => ({
         index: n, mines: b[n].adj, hidden: neighbors(n, w, h).filter((x) => !b[x].revealed).length,
       })),
-      scenarios: interior ? interiorScenarios : evidence.get(index) ?? [],
+      scenarios,
     };
   };
   return { probabilities: probs, explain };
