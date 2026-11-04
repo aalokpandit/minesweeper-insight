@@ -20,5 +20,6 @@ export function useDelayedExplanation<T>(derive: () => T, source: unknown) {
       setResult({ source, value: derive() });
     }, 1000);
   };
-  return { value: result?.source === source ? result.value : null, start, cancel };
+  const value = result !== null && result.source === source ? result.value : null;
+  return { value, start, cancel };
 }
