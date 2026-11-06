@@ -1,7 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { emptyBoard, placeMines, neighbors, computeProbabilities, analyzeProbabilities } from "@/lib/minesweeper";
+import { emptyBoard, placeMines, neighbors, computeProbabilities, analyzeProbabilities, safestCells } from "@/lib/minesweeper";
 
 describe("minesweeper", () => {
+  it("selects only the lowest exact probability, not rounded percentages", () => {
+    expect([...safestCells([NaN, 0.101, 0.104, 0.8])]).toEqual([1]);
+  });
+
+  it("selects every cell tied for the lowest probability including zero", () => {
+    expect([...safestCells([0.5, 0.2, 0.2, NaN])]).toEqual([1, 2]);
+    expect([...safestCells([0, 1, 0, NaN])]).toEqual([0, 2]);
+  });
+
+  it("selects no cells when no finite probabilities are available", () => {
+    expect([...safestCells([NaN, Infinity])]).toEqual([]);
+  });
   it("explains two mines among two unopened neighbours as certain mines", () => {
     const b = emptyBoard(3, 1);
     b[1] = { mine: false, revealed: true, flag: 0, adj: 2 };

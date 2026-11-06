@@ -234,3 +234,14 @@ export function analyzeProbabilities(b: Cell[], w: number, h: number, totalMines
 export function computeProbabilities(b: Cell[], w: number, h: number, totalMines: number): number[] {
   return analyzeProbabilities(b, w, h, totalMines).probabilities;
 }
+
+/** Select all exact minimum-risk ties from the existing heatmap, without solving again. */
+export function safestCells(probabilities: number[]): Set<number> {
+  let minimum = Infinity;
+  for (const p of probabilities) if (Number.isFinite(p) && p < minimum) minimum = p;
+  const cells = new Set<number>();
+  probabilities.forEach((p, index) => {
+    if (Number.isFinite(p) && p === minimum) cells.add(index);
+  });
+  return cells;
+}
