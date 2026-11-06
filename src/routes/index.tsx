@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type Cell, emptyBoard, placeMines, revealFrom, neighbors, analyzeProbabilities } from "@/lib/minesweeper";
+import { type Cell, emptyBoard, placeMines, revealFrom, neighbors, analyzeProbabilities, safestCells } from "@/lib/minesweeper";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CellExplanation } from "@/components/cell-explanation";
@@ -65,6 +65,7 @@ function Game() {
     () => (learn && status === "playing" ? analyzeProbabilities(board, cfg.w, cfg.h, cfg.m) : null),
     [learn, status, board, cfg],
   );
+  const safest = useMemo(() => analysis ? safestCells(analysis.probabilities) : new Set<number>(), [analysis]);
 
   // Auto-Clear: open every 0% tile and flag every 100% tile, repeating until nothing certain remains.
   useEffect(() => {
@@ -206,7 +207,7 @@ function Game() {
                 const tile = (
                   <Button variant="ghost" style={style}
                     aria-label={`Row ${Math.floor(i / cfg.w) + 1}, column ${i % cfg.w + 1}${c.revealed ? c.mine ? ", mine" : `, revealed ${c.adj}` : c.flag === 1 ? ", flagged" : ", unopened"}${hasP ? `, ${pct} mine chance` : ""}`}
-                    className={`flex rounded-none p-0 items-center justify-center font-mono font-bold leading-none transition-colors duration-150 ${
+                    className={`flex rounded-none p-0 items-center justify-center font-mono font-bold leading-none transition-colors duration-150 ${safest.has(i) ? "safest-cell" : ""} ${
                       c.revealed ? (c.exploded ? "bg-destructive" : "bg-background") : pressedSet.has(i) ? "bg-background scale-95" : "bg-secondary hover:brightness-110 active:brightness-90"}`}
                     onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); setHeld(i); } }}
                     onMouseEnter={() => { if (held !== null) setHeld(i); }}

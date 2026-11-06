@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Keep probability explanations derived from the exact solver's cached counting evidence, not a second solver or hidden mine positions; assemble reasoning and scenario rows only for a cell whose dwell timer expires, so clicks calculate the heatmap without deriving every explanation.
+- Select safest-cell highlights from the cached heatmap through the shared minimum-risk selector, so highlighting never reruns the solver or derives explanations.

@@ -142,3 +142,20 @@
     color: var(--color-foreground);
   }
 }
+
+@keyframes safest-cell-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.safest-cell {
+  animation: safest-cell-blink 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .safest-cell {
+    animation: none;
+    outline: 2px solid var(--foreground);
+    outline-offset: -2px;
+  }
+}
