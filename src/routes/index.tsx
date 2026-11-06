@@ -34,6 +34,7 @@ function Game() {
   const [status, setStatus] = useState<Status>("ready");
   const [time, setTime] = useState(0);
   const [learn, setLearn] = useState(false);
+  const [autoClear, setAutoClear] = useState(false);
   const [cellSize, setCellSize] = useState(32);
   const press = useRef<{ t?: number; long: boolean; touch: boolean }>({ long: false, touch: false });
 
@@ -64,6 +65,24 @@ function Game() {
     () => (learn && status === "playing" ? analyzeProbabilities(board, cfg.w, cfg.h, cfg.m) : null),
     [learn, status, board, cfg],
   );
+
+  // Auto-Clear: open every 0% tile and flag every 100% tile, repeating until nothing certain remains.
+  useEffect(() => {
+    if (!autoClear || status !== "playing") return;
+    const id = window.setTimeout(() => {
+      const probs = analyzeProbabilities(board, cfg.w, cfg.h, cfg.m).probabilities;
+      let changed = false;
+      const b = board.map((c) => ({ ...c }));
+      probs.forEach((p, i) => {
+        if (b[i].revealed) return;
+        if (p === 1 && b[i].flag !== 1) { b[i].flag = 1; changed = true; }
+        else if (p === 0) { b[i].flag = 0; revealFrom(b, cfg.w, cfg.h, i); changed = true; }
+      });
+      if (changed) setBoard(finish(b));
+    }, 120);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoClear, status, board, cfg]);
 
   const finish = (b: Cell[]) => {
     if (b.some((c) => c.revealed && c.mine)) {
@@ -154,11 +173,18 @@ function Game() {
           </form>
         </div>
 
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+        <label className="flex cursor-pointer select-none items-center gap-2 text-sm">
+          <input type="checkbox" checked={autoClear} onChange={(e) => setAutoClear(e.target.checked)} className="h-4 w-4 accent-primary" />
+          <span className="font-medium">Auto-Clear</span>
+          <span className="text-muted-foreground">— open 0% tiles, flag 100% tiles</span>
+        </label>
         <label className="flex cursor-pointer select-none items-center gap-2 text-sm">
           <input type="checkbox" checked={learn} onChange={(e) => setLearn(e.target.checked)} className="h-4 w-4 accent-primary" />
           <span className="font-medium">Learn Mode</span>
           <span className="text-muted-foreground">— colour tiles by exact mine probability</span>
         </label>
+        </div>
 
         <div className="rounded-xl border border-border bg-card p-3 shadow-lg">
           <div className="mb-3 flex items-center justify-between rounded-md bg-muted px-3 py-2">
