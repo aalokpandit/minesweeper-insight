@@ -51,38 +51,24 @@ function Game() {
     return () => clearInterval(id);
   }, [status]);
 
+  // Fit the board to the measured free area; cap tiles so large screens don't get a giant grid.
+  const areaRef = useRef<HTMLElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    const area = areaRef.current;
+    if (!area) return;
     const fit = () => {
-      // In mobile, use tighter side margins so maximum width is usable
-      const isMobile = window.innerWidth < 640;
-      const hPadding = isMobile ? 24 : 48;
-      const maxContainerWidth = 1100;
-      const availW = Math.max(160, Math.min(window.innerWidth - hPadding, maxContainerWidth));
-
-      // Calculate vertical space budget for the board
-      // Accounting for top title, preset buttons, auto-clear/learn toggles, score bar, instructions, and margins
-      const isShortLandscape = window.innerHeight < 520;
-      const uiOverheadY = isShortLandscape ? 170 : isMobile ? 260 : 290;
-      const availH = Math.max(160, window.innerHeight - uiOverheadY);
-
-      // Max cell size in pixels: desktop/tablet comfort size, capped to avoid gigantic cells on large screens
-      const maxCell = 36;
-      // Min cell size in pixels: allows intermediate and expert boards to fit mobile viewports
-      const minCell = 13;
-
-      const sizeByWidth = Math.floor(availW / cfg.w);
-      const sizeByHeight = Math.floor(availH / cfg.h);
-
-      const calculated = Math.min(sizeByWidth, sizeByHeight);
-      setCellSize(Math.max(minCell, Math.min(maxCell, calculated)));
+      const cardPad = window.innerWidth < 640 ? 18 : 26; // padding + border of the card
+      const bar = (barRef.current?.offsetHeight ?? 36) + (window.innerWidth < 640 ? 8 : 12);
+      const availW = area.clientWidth - cardPad - (cfg.w - 1);
+      const availH = area.clientHeight - cardPad - bar - (cfg.h - 1);
+      const calc = Math.floor(Math.min(availW / cfg.w, availH / cfg.h));
+      setCellSize(Math.max(9, Math.min(36, calc)));
     };
     fit();
-    window.addEventListener("resize", fit);
-    window.addEventListener("orientationchange", fit);
-    return () => {
-      window.removeEventListener("resize", fit);
-      window.removeEventListener("orientationchange", fit);
-    };
+    const ro = new ResizeObserver(fit);
+    ro.observe(area);
+    return () => ro.disconnect();
   }, [cfg.w, cfg.h]);
 
   const analysis = useMemo(
@@ -165,9 +151,9 @@ function Game() {
   const pad = (n: number) => String(Math.max(-99, n)).padStart(3, "0");
 
   return (
-    <main className="min-h-screen bg-background px-2 py-4 sm:px-4 sm:py-8 text-foreground">
-      <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 sm:gap-5">
-        <h1 className="font-mono text-2xl sm:text-3xl font-bold tracking-tight">MINESWEEPER</h1>
+    <main className="flex h-dvh flex-col gap-2 overflow-hidden bg-background px-2 py-2 text-foreground sm:gap-4 sm:px-4 sm:py-6 short:flex-row short:gap-3 short:py-2">
+      <div className="mx-auto flex w-full max-w-6xl shrink-0 flex-col items-center gap-2 sm:gap-4 short:mx-0 short:w-56 short:justify-center short:overflow-y-auto">
+        <h1 className="font-mono text-xl sm:text-3xl font-bold tracking-tight short:text-lg">MINESWEEPER</h1>
 
         <div className="flex flex-wrap items-center justify-center gap-2">
           {Object.entries(PRESETS).map(([name, p]) => {
@@ -210,9 +196,14 @@ function Game() {
           <span className="text-muted-foreground hidden sm:inline">— colour tiles by exact mine probability</span>
         </label>
         </div>
+        <p className="hidden text-center text-xs text-muted-foreground short:block">
+          {status === "won" ? "You cleared the field! 🎉" : status === "lost" ? "Boom. Tap the face to retry." : "Tap to reveal · long-press to flag"}
+        </p>
+      </div>
 
-        <div className="rounded-xl border border-border bg-card p-2 sm:p-3 shadow-lg max-w-full">
-          <div className="mb-2 sm:mb-3 flex items-center justify-between rounded-md bg-muted px-3 py-1.5 sm:py-2">
+      <section ref={areaRef} className="flex min-h-0 min-w-0 flex-1 items-center justify-center">
+        <div className="max-h-full max-w-full rounded-xl border border-border bg-card p-2 sm:p-3 shadow-lg">
+          <div ref={barRef} className="mb-2 sm:mb-3 flex items-center justify-between rounded-md bg-muted px-3 py-1.5 sm:py-2">
             <span className="font-mono text-xl sm:text-2xl font-bold text-destructive" aria-label="Mines left">{pad(cfg.m - flags)}</span>
             <button onClick={() => newGame()} aria-label="New game"
               className="rounded-md border border-border bg-card px-2 text-xl sm:text-2xl transition-transform hover:scale-110 active:scale-95">{face}</button>
@@ -260,12 +251,12 @@ function Game() {
             </TooltipProvider>
           </div>
         </div>
+      </section>
 
-        <p className="text-center text-sm text-muted-foreground">
-          {status === "won" ? "You cleared the field! 🎉" : status === "lost" ? "Boom. Click the face to try again." :
-            "Left-click to reveal · Right-click or long-press to flag (again for ?) · Click a number to chord"}
-        </p>
-      </div>
+      <p className="shrink-0 text-center text-xs sm:text-sm text-muted-foreground short:hidden">
+        {status === "won" ? "You cleared the field! 🎉" : status === "lost" ? "Boom. Click the face to try again." :
+          "Left-click to reveal · Right-click or long-press to flag (again for ?) · Click a number to chord"}
+      </p>
     </main>
   );
 }
