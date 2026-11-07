@@ -152,15 +152,15 @@ function Game() {
 
   return (
     <main className="flex h-dvh flex-col gap-2 overflow-hidden bg-background px-2 py-2 text-foreground sm:gap-4 sm:px-4 sm:py-6 short:flex-row short:gap-3 short:py-2">
-      <div className="mx-auto flex w-full max-w-6xl shrink-0 flex-col items-center gap-2 sm:gap-4 short:mx-0 short:w-56 short:justify-center short:overflow-y-auto">
+      <div className="mx-auto flex w-full max-w-6xl shrink-0 flex-col items-center gap-2 sm:gap-4 short:mx-0 short:w-64 short:justify-center short:overflow-y-auto">
         <h1 className="font-mono text-xl sm:text-3xl font-bold tracking-tight short:text-lg">MINESWEEPER</h1>
 
-        <div className="flex flex-wrap items-center justify-center gap-2">
+        <div className="flex flex-wrap items-center justify-center gap-2 short:gap-1">
           {Object.entries(PRESETS).map(([name, p]) => {
             const active = cfg.w === p.w && cfg.h === p.h && cfg.m === p.m;
             return (
               <button key={name} onClick={() => newGame({ ...p })}
-                className={`rounded-md border px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm short:px-2 short:py-1 short:text-xs font-medium transition-colors ${active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted"}`}>
+                className={`rounded-md border px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm short:px-2! short:py-1! short:text-xs! font-medium transition-colors ${active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted"}`}>
                 {name}
               </button>
             );
@@ -188,12 +188,12 @@ function Game() {
         <label className="flex cursor-pointer select-none items-center gap-2 text-xs sm:text-sm">
           <input type="checkbox" checked={autoClear} onChange={(e) => setAutoClear(e.target.checked)} className="h-4 w-4 accent-primary" />
           <span className="font-medium">Auto-Clear</span>
-          <span className="text-muted-foreground hidden sm:inline short:hidden">— open 0% tiles, flag 100% tiles</span>
+          <span className="text-muted-foreground hidden sm:inline short:hidden!">— open 0% tiles, flag 100% tiles</span>
         </label>
         <label className="flex cursor-pointer select-none items-center gap-2 text-xs sm:text-sm">
           <input type="checkbox" checked={learn} onChange={(e) => setLearn(e.target.checked)} className="h-4 w-4 accent-primary" />
           <span className="font-medium">Learn Mode</span>
-          <span className="text-muted-foreground hidden sm:inline short:hidden">— colour tiles by exact mine probability</span>
+          <span className="text-muted-foreground hidden sm:inline short:hidden!">— colour tiles by exact mine probability</span>
         </label>
         </div>
         <p className="hidden text-center text-xs text-muted-foreground short:block">
