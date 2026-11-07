@@ -160,12 +160,12 @@ function Game() {
             const active = cfg.w === p.w && cfg.h === p.h && cfg.m === p.m;
             return (
               <button key={name} onClick={() => newGame({ ...p })}
-                className={`rounded-md border px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm font-medium transition-colors ${active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted"}`}>
+                className={`rounded-md border px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm short:px-2 short:py-1 short:text-xs font-medium transition-colors ${active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted"}`}>
                 {name}
               </button>
             );
           })}
-          <form className="flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs sm:text-sm"
+          <form className="flex flex-wrap items-center justify-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs sm:text-sm short:text-xs"
             onSubmit={(e) => {
               e.preventDefault();
               const w = Math.max(5, Math.min(50, custom.w)), h = Math.max(5, Math.min(30, custom.h));
@@ -177,7 +177,7 @@ function Game() {
               <label key={k} className="flex items-center gap-1 text-muted-foreground">
                 {k === "w" ? "W" : k === "h" ? "H" : "M"}
                 <input type="number" value={custom[k]} onChange={(e) => setCustom({ ...custom, [k]: +e.target.value })}
-                  className="w-12 sm:w-14 rounded border border-input bg-background px-1 py-0.5 text-foreground" />
+                  className="w-12 sm:w-14 short:w-10 rounded border border-input bg-background px-1 py-0.5 text-foreground" />
               </label>
             ))}
             <button className="ml-1 rounded bg-secondary px-2 py-0.5 font-medium text-secondary-foreground hover:bg-muted">Custom</button>
@@ -188,12 +188,12 @@ function Game() {
         <label className="flex cursor-pointer select-none items-center gap-2 text-xs sm:text-sm">
           <input type="checkbox" checked={autoClear} onChange={(e) => setAutoClear(e.target.checked)} className="h-4 w-4 accent-primary" />
           <span className="font-medium">Auto-Clear</span>
-          <span className="text-muted-foreground hidden sm:inline">— open 0% tiles, flag 100% tiles</span>
+          <span className="text-muted-foreground hidden sm:inline short:hidden">— open 0% tiles, flag 100% tiles</span>
         </label>
         <label className="flex cursor-pointer select-none items-center gap-2 text-xs sm:text-sm">
           <input type="checkbox" checked={learn} onChange={(e) => setLearn(e.target.checked)} className="h-4 w-4 accent-primary" />
           <span className="font-medium">Learn Mode</span>
-          <span className="text-muted-foreground hidden sm:inline">— colour tiles by exact mine probability</span>
+          <span className="text-muted-foreground hidden sm:inline short:hidden">— colour tiles by exact mine probability</span>
         </label>
         </div>
         <p className="hidden text-center text-xs text-muted-foreground short:block">
