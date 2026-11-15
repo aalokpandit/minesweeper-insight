@@ -82,8 +82,24 @@ export type ProbabilityExplanation = {
   totalMines: number;
 };
 
+/** Tolerance so floating-point noise (e.g. 0.9999999) still counts as certain. */
+export const CERTAINTY_EPSILON = 1e-9;
+export const isCertainSafe = (p: number) => Number.isFinite(p) && p < CERTAINTY_EPSILON;
+export const isCertainMine = (p: number) => Number.isFinite(p) && p > 1 - CERTAINTY_EPSILON;
+
+type Evidence = { counts: number[]; cellCounts: number[][]; position: number; weights: number[] };
+/** Structured-clone-safe solver output, so it can be computed in a worker. */
+export type SolverResult = {
+  probs: number[]; constraints: { cells: number[]; need: number }[]; frontier: number[];
+  all: number[]; wt: number[]; total: number; I: number; evidence: Map<number, Evidence>;
+};
+
 /** Keeps the exact counting evidence so hovering never runs the solver again. */
 export function analyzeProbabilities(b: Cell[], w: number, h: number, totalMines: number) {
+  return buildAnalysis(solveProbabilities(b, w, h, totalMines), b, w, h, totalMines);
+}
+
+export function solveProbabilities(b: Cell[], w: number, h: number, totalMines: number): SolverResult {
   const n = b.length;
   const probs = new Array(n).fill(NaN);
   const constraints: { cells: number[]; need: number }[] = [];
@@ -172,8 +188,9 @@ export function analyzeProbabilities(b: Cell[], w: number, h: number, totalMines
     total += d * wt[m];
     if (I > 0) interiorMines += d * wt[m] * (totalMines - m) / I;
   });
-  const evidence = new Map<number, { counts: number[]; cellCounts: number[][]; position: number; weights: number[] }>();
-  if (total === 0) return { probabilities: probs, explain: (_index: number): ProbabilityExplanation | null => null };
+  const evidence = new Map<number, Evidence>();
+  const frontier = [...parent.keys()];
+  if (total === 0) return { probs, constraints, frontier, all, wt, total, I, evidence };
   for (const x of interior) probs[x] = interiorMines / total;
   comps.forEach((c, ci) => {
     const others = comps.reduce((acc, o, oi) => (oi === ci ? acc : convolve(acc, o.counts)), [1]);
@@ -185,12 +202,19 @@ export function analyzeProbabilities(b: Cell[], w: number, h: number, totalMines
       evidence.set(x, { counts: c.counts, cellCounts: c.cellCounts, position: i, weights: g });
     });
   });
+  return { probs, constraints, frontier, all, wt, total, I, evidence };
+}
+
+export function buildAnalysis(r: SolverResult, b: Cell[], w: number, h: number, totalMines: number) {
+  const { probs, constraints, all, wt, total, I, evidence } = r;
+  const frontier = new Set(r.frontier);
+  if (total === 0) return { probabilities: probs, explain: (_index: number): ProbabilityExplanation | null => null };
   const explain = (index: number): ProbabilityExplanation | null => {
     const probability = probs[index];
     if (probability === undefined || !Number.isFinite(probability)) return null;
     const direct = constraints.filter((c) => c.cells.includes(index));
     const forced = direct.find((c) => c.need === 0 || c.need === c.cells.length);
-    const interior = !parent.has(index);
+    const interior = !frontier.has(index);
     let reason: string;
     if (forced) {
       const clueIndex = neighbors(index, w, h).find((n) => b[n].revealed && b[n].adj === forced.need &&

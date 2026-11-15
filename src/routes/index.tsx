@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type Cell, emptyBoard, placeMines, revealFrom, neighbors, analyzeProbabilities, safestCells } from "@/lib/minesweeper";
+import { type Cell, type ProbabilityExplanation, emptyBoard, placeMines, revealFrom, neighbors, safestCells, isCertainMine, isCertainSafe } from "@/lib/minesweeper";
+import { useProbabilityAnalysis } from "@/hooks/use-probability-analysis";
+import { ProbabilityExplanationContent } from "@/components/probability-explanation";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CellExplanation } from "@/components/cell-explanation";
@@ -43,11 +45,15 @@ function Game() {
     setBoard(emptyBoard(c.w, c.h));
     setStatus("ready");
     setTime(0);
+    setMobileExplain(null);
   };
 
+  // Elapsed time comes from the clock, so a busy moment can delay a repaint but never loses seconds.
+  const startedAt = useRef(0);
   useEffect(() => {
     if (status !== "playing") return;
-    const id = setInterval(() => setTime((t) => Math.min(999, t + 1)), 1000);
+    const tick = () => setTime(Math.min(999, Math.floor((Date.now() - startedAt.current) / 1000)));
+    const id = setInterval(tick, 250);
     return () => clearInterval(id);
   }, [status]);
 
@@ -71,29 +77,30 @@ function Game() {
     return () => ro.disconnect();
   }, [cfg.w, cfg.h]);
 
-  const analysis = useMemo(
-    () => (learn && status === "playing" ? analyzeProbabilities(board, cfg.w, cfg.h, cfg.m) : null),
-    [learn, status, board, cfg],
-  );
+  const [mobileExplain, setMobileExplain] = useState<{ index: number; value: ProbabilityExplanation } | null>(null);
+  const tap = useRef<{ index: number; at: number; t?: number }>({ index: -1, at: 0 });
+  const shared = useProbabilityAnalysis(board, cfg.w, cfg.h, cfg.m, (learn || autoClear) && status === "playing");
+  const analysis = learn ? shared : null;
   const safest = useMemo(() => analysis ? safestCells(analysis.probabilities) : new Set<number>(), [analysis]);
+  useEffect(() => { setMobileExplain(null); }, [board]);
 
   // Auto-Clear: open every 0% tile and flag every 100% tile, repeating until nothing certain remains.
   useEffect(() => {
-    if (!autoClear || status !== "playing") return;
+    if (!autoClear || status !== "playing" || !shared) return;
     const id = window.setTimeout(() => {
-      const probs = analyzeProbabilities(board, cfg.w, cfg.h, cfg.m).probabilities;
+      const probs = shared.probabilities;
       let changed = false;
       const b = board.map((c) => ({ ...c }));
       probs.forEach((p, i) => {
         if (b[i].revealed) return;
-        if (p === 1 && b[i].flag !== 1) { b[i].flag = 1; changed = true; }
-        else if (p === 0) { b[i].flag = 0; revealFrom(b, cfg.w, cfg.h, i); changed = true; }
+        if (isCertainMine(p) && b[i].flag !== 1) { b[i].flag = 1; changed = true; }
+        else if (isCertainSafe(p)) { b[i].flag = 0; revealFrom(b, cfg.w, cfg.h, i); changed = true; }
       });
       if (changed) setBoard(finish(b));
     }, 120);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoClear, status, board, cfg]);
+  }, [autoClear, status, shared]);
 
   const finish = (b: Cell[]) => {
     if (b.some((c) => c.revealed && c.mine)) {
@@ -112,6 +119,7 @@ function Game() {
     let b = board.map((c) => ({ ...c }));
     if (status === "ready") {
       b = placeMines(b, cfg.w, cfg.h, cfg.m, i);
+      startedAt.current = Date.now();
       setStatus("playing");
     }
     const c = b[i];
@@ -127,6 +135,9 @@ function Game() {
     }
     setBoard(finish(b));
   };
+
+  const revealRef = useRef(reveal);
+  revealRef.current = reveal;
 
   // Middle-button hold: "press" the cell (if hidden) and its hidden, unflagged neighbours
   const [held, setHeld] = useState<number | null>(null);
@@ -197,7 +208,7 @@ function Game() {
         </label>
         </div>
         <p className="hidden text-center text-xs text-muted-foreground short:block">
-          {status === "won" ? "You cleared the field! 🎉" : status === "lost" ? "Boom. Tap the face to retry." : "Tap to reveal · long-press to flag"}
+          {status === "won" ? "You cleared the field! 🎉" : status === "lost" ? "Boom. Tap the face to retry." : learn ? "Tap to reveal · double-tap to explain · long-press to flag" : "Tap to reveal · long-press to flag"}
         </p>
       </div>
 
@@ -216,7 +227,7 @@ function Game() {
               {board.map((c, i) => {
                 const p = analysis?.probabilities[i];
                 const hasP = p !== undefined && Number.isFinite(p) && !c.revealed;
-                const pct = hasP && p !== undefined ? `${Math.round(p * 100)}%` : "";
+                const pct = hasP && p !== undefined ? isCertainSafe(p) ? "0%" : isCertainMine(p) ? "100%" : `${Math.round(p * 100)}%` : "";
                 const style: React.CSSProperties = { width: cellSize, height: cellSize, fontSize: Math.max(9, cellSize * 0.55) };
                 if (hasP && p !== undefined) style.backgroundColor = `hsl(${120 * (1 - p)} 70% 45%)`;
                 const tile = (
@@ -229,12 +240,28 @@ function Game() {
                     onMouseUp={(e) => { if (e.button === 1) { setHeld(null); if (board[i].revealed) reveal(i); } }}
                     onAuxClick={(e) => e.preventDefault()}
                     onPointerDown={(e) => {
-                      if (e.pointerType !== "touch") return;
+                      if (e.pointerType !== "touch") { press.current.touch = false; return; }
                       press.current = { long: false, touch: true, t: window.setTimeout(() => { press.current.long = true; toggleFlag(i); navigator.vibrate?.(30); }, 400) };
                     }}
                     onPointerUp={() => clearTimeout(press.current.t)}
                     onPointerLeave={() => clearTimeout(press.current.t)}
-                    onClick={() => { if (press.current.long) { press.current.long = false; return; } reveal(i); }}
+                    onClick={() => {
+                      if (press.current.long) { press.current.long = false; return; }
+                      // Touch + Learn Mode: a double tap explains, a single tap reveals after a short wait.
+                      if (press.current.touch && hasP && analysis) {
+                        const now = Date.now();
+                        clearTimeout(tap.current.t);
+                        if (tap.current.index === i && now - tap.current.at < 300) {
+                          tap.current = { index: -1, at: 0 };
+                          const value = analysis.explain(i);
+                          if (value) setMobileExplain({ index: i, value });
+                          return;
+                        }
+                        tap.current = { index: i, at: now, t: window.setTimeout(() => { tap.current = { index: -1, at: 0 }; revealRef.current(i); }, 300) };
+                        return;
+                      }
+                      reveal(i);
+                    }}
                     onContextMenu={(e) => { e.preventDefault(); if (!press.current.touch) toggleFlag(i); press.current.touch = false; }}>
                     {c.revealed
                       ? c.mine ? "💣" : c.adj ? <span style={{ color: NUM_COLORS[c.adj] }}>{c.adj}</span> : null
@@ -252,6 +279,17 @@ function Game() {
           </div>
         </div>
       </section>
+
+      {mobileExplain && (
+        <div className="fixed inset-0 z-50 flex items-end bg-foreground/20" onClick={() => setMobileExplain(null)}>
+          <div className="w-full rounded-t-xl border border-border bg-popover p-4 text-popover-foreground shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex justify-end">
+              <button onClick={() => setMobileExplain(null)} className="rounded-md border border-border px-3 py-1 text-sm">Close</button>
+            </div>
+            <ProbabilityExplanationContent explanation={mobileExplain.value} index={mobileExplain.index} width={cfg.w} />
+          </div>
+        </div>
+      )}
 
       <p className="shrink-0 text-center text-xs sm:text-sm text-muted-foreground short:hidden">
         {status === "won" ? "You cleared the field! 🎉" : status === "lost" ? "Boom. Click the face to try again." :

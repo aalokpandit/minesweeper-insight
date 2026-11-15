@@ -7,7 +7,7 @@ export function ProbabilityExplanationContent({ explanation: e, index, width }: 
   explanation: ProbabilityExplanation; index: number; width: number;
 }) {
   return (
-    <div className="max-h-96 space-y-3 overflow-y-auto text-sm leading-relaxed">
+    <div className="max-h-[60vh] space-y-2 overflow-y-auto text-xs leading-snug sm:text-sm">
       <div className="flex items-center justify-between gap-3 border-b border-border pb-2">
         <span className="font-medium">Row {Math.floor(index / width) + 1}, column {index % width + 1}</span>
         <strong className="font-mono">{percent(e.probability)} mine chance</strong>
@@ -36,15 +36,15 @@ export function ProbabilityExplanationContent({ explanation: e, index, width }: 
             <th className="py-1 font-medium">Adds</th>
           </tr></thead>
           <tbody>{e.scenarios.map((s) => <tr key={s.mines} className="border-b border-border">
-            <td className="py-2 pr-2">{s.mines}</td>
-            <td className="py-2 pr-2">{percent(s.likelihood)}</td>
-            <td className="py-2 pr-2">
+            <td className="py-1 pr-2">{s.mines}</td>
+            <td className="py-1 pr-2">{percent(s.likelihood)}</td>
+            <td className="py-1 pr-2">
               {!e.interior && s.arrangements !== undefined && s.mineArrangements !== undefined &&
                 <span className="block text-muted-foreground">{count(s.mineArrangements)} / {count(s.arrangements)}</span>}
               {e.interior && <span className="block text-muted-foreground">{s.mines} / {e.interiorCells}</span>}
               {percent(s.conditional)}
             </td>
-            <td className="py-2">{percent(s.contribution)}</td>
+            <td className="py-1">{percent(s.contribution)}</td>
           </tr>)}</tbody>
         </table>
         <p className="mt-2 text-xs text-muted-foreground">Each row adds scenario share × tile chance. Their sum is {percent(e.probability)} (rounding may affect the displayed sum).</p>
