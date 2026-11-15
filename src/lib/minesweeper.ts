@@ -226,7 +226,7 @@ export function buildAnalysis(r: SolverResult, b: Cell[], w: number, h: number, 
     } else if (interior) {
       reason = `No revealed clue touches this tile. The ${I} tiles outside all clues share the mines left after satisfying the clues. Average the remaining-mine fraction over all compatible arrangements.`;
     } else {
-      reason = `Nearby clues overlap, so their fractions cannot simply be averaged. Keep only arrangements satisfying every connected clue and the board's total of ${totalMines} mines, then count how often this tile is a mine.${probability === 0 ? " None of those arrangements puts a mine here." : probability === 1 ? " Every one puts a mine here." : ""}`;
+      reason = `Nearby clues overlap, so their fractions cannot simply be averaged. Keep only arrangements satisfying every connected clue and the board's total of ${totalMines} mines, then count how often this tile is a mine.${isCertainSafe(probability) ? " None of those arrangements puts a mine here." : isCertainMine(probability) ? " Every one puts a mine here." : ""}`;
     }
     const cached = evidence.get(index);
     const scenarios: ProbabilityScenario[] = interior
