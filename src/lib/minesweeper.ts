@@ -78,6 +78,8 @@ export type ProbabilityExplanation = {
   clues: { index: number; mines: number; hidden: number }[];
   scenarios: ProbabilityScenario[];
   interior: boolean;
+  /** Unopened tiles linked to this one by overlapping clues (empty for interior tiles). */
+  group: number[];
   interiorCells: number;
   totalMines: number;
 };
@@ -87,7 +89,7 @@ export const CERTAINTY_EPSILON = 1e-9;
 export const isCertainSafe = (p: number) => Number.isFinite(p) && p < CERTAINTY_EPSILON;
 export const isCertainMine = (p: number) => Number.isFinite(p) && p > 1 - CERTAINTY_EPSILON;
 
-type Evidence = { counts: number[]; cellCounts: number[][]; position: number; weights: number[] };
+type Evidence = { counts: number[]; cellCounts: number[][]; position: number; weights: number[]; group: number[] };
 /** Structured-clone-safe solver output, so it can be computed in a worker. */
 export type SolverResult = {
   probs: number[]; constraints: { cells: number[]; need: number }[]; frontier: number[];
@@ -199,7 +201,7 @@ export function solveProbabilities(b: Cell[], w: number, h: number, totalMines: 
       let s = 0;
       for (let k = 0; k < c.counts.length; k++) s += c.cellCounts[k][i] * g[k];
       probs[x] = s / total;
-      evidence.set(x, { counts: c.counts, cellCounts: c.cellCounts, position: i, weights: g });
+      evidence.set(x, { counts: c.counts, cellCounts: c.cellCounts, position: i, weights: g, group: c.cells });
     });
   });
   return { probs, constraints, frontier, all, wt, total, I, evidence };
@@ -245,7 +247,7 @@ export function buildAnalysis(r: SolverResult, b: Cell[], w: number, h: number, 
         contribution: cached.cellCounts[k][cached.position] * cached.weights[k] / total,
       }] : []) : [];
     return {
-      probability, reason, interior, interiorCells: I, totalMines,
+      probability, reason, interior, group: interior ? [] : cached?.group ?? [], interiorCells: I, totalMines,
       clues: neighbors(index, w, h).filter((n) => b[n].revealed && !b[n].mine).map((n) => ({
         index: n, mines: b[n].adj, hidden: neighbors(n, w, h).filter((x) => !b[x].revealed).length,
       })),

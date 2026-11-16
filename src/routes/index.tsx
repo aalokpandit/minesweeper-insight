@@ -84,6 +84,9 @@ function Game() {
   const analysis = learn ? latest : null;
   const safest = useMemo(() => analysis ? safestCells(analysis.probabilities) : new Set<number>(), [analysis]);
   useEffect(() => { setMobileExplain(null); }, [board]);
+  // Tiles analysed together with the explained tile; purely visual, never touches the solver.
+  const [hoverGroup, setHoverGroup] = useState<number[] | null>(null);
+  const group = useMemo(() => new Set(mobileExplain?.value.group ?? hoverGroup ?? []), [mobileExplain, hoverGroup]);
 
   // Auto-Clear: open every 0% tile and flag every 100% tile, repeating until nothing certain remains.
   useEffect(() => {
@@ -234,7 +237,7 @@ function Game() {
                 const tile = (
                   <Button variant="ghost" style={style}
                     aria-label={`Row ${Math.floor(i / cfg.w) + 1}, column ${i % cfg.w + 1}${c.revealed ? c.mine ? ", mine" : `, revealed ${c.adj}` : c.flag === 1 ? ", flagged" : ", unopened"}${hasP ? `, ${pct} mine chance` : ""}`}
-                    className={`flex rounded-none p-0 items-center justify-center font-mono font-bold leading-none transition-colors duration-150 ${safest.has(i) ? "safest-cell" : ""} ${
+                    className={`flex rounded-none p-0 items-center justify-center font-mono font-bold leading-none transition-colors duration-150 ${safest.has(i) ? "safest-cell" : ""} ${group.has(i) ? "group-cell" : ""} ${
                       c.revealed ? (c.exploded ? "bg-destructive" : "bg-background") : pressedSet.has(i) ? "bg-background scale-95" : "bg-secondary hover:brightness-110 active:brightness-90"}`}
                     onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); setHeld(i); } }}
                     onMouseEnter={() => { if (held !== null) setHeld(i); }}
@@ -272,7 +275,7 @@ function Game() {
                   </Button>
                 );
                 return hasP && analysis && fresh ? (
-                  <CellExplanation key={i} analysis={analysis} index={i} width={cfg.w}>{tile}</CellExplanation>
+                  <CellExplanation key={i} analysis={analysis} index={i} width={cfg.w} onGroup={setHoverGroup}>{tile}</CellExplanation>
                 ) : <span key={i} className="contents">{tile}</span>;
               })}
             </div>

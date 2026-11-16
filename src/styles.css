@@ -161,3 +161,6 @@
     box-shadow: var(--safest-cell-emphasis);
   }
 }
+
+/* Tiles that share the explained tile's connected group. */
+.group-cell { outline: 2px dashed var(--foreground); outline-offset: -3px; }

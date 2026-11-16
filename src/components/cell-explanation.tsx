@@ -1,13 +1,19 @@
-import type { ReactElement } from "react";
+import { useEffect, type ReactElement } from "react";
 import { useDelayedExplanation } from "@/hooks/use-delayed-explanation";
 import { analyzeProbabilities } from "@/lib/minesweeper";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProbabilityExplanationContent } from "@/components/probability-explanation";
 
-export function CellExplanation({ analysis, index, width, children }: {
+export function CellExplanation({ analysis, index, width, onGroup, children }: {
   analysis: ReturnType<typeof analyzeProbabilities>; index: number; width: number; children: ReactElement;
+  onGroup?: (cells: number[] | null) => void;
 }) {
   const { value, start, cancel, closeSoon, keepOpen } = useDelayedExplanation(() => analysis.explain(index), analysis);
+  useEffect(() => {
+    if (!value) return;
+    onGroup?.(value.group);
+    return () => onGroup?.(null);
+  }, [value, onGroup]);
   return (
     <Tooltip open={value !== null} onOpenChange={(open) => { if (!open) cancel(); }}>
       <TooltipTrigger asChild onPointerEnter={(e) => { if (e.pointerType !== "touch") start(); }}
