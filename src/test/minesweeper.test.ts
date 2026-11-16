@@ -77,3 +77,13 @@ describe("minesweeper", () => {
     expect(p[0]).toBeCloseTo(0.5);
   });
 });
+
+import { isCertainMine, isCertainSafe } from "@/lib/minesweeper";
+describe("near-certain probabilities", () => {
+  it("treats floating-point noise as certain so Auto-Clear acts", () => {
+    expect(isCertainMine(0.9999999999)).toBe(true);
+    expect(isCertainSafe(1e-17)).toBe(true);
+    expect(isCertainSafe(0.01)).toBe(false);
+    expect(isCertainMine(0.99)).toBe(false);
+  });
+});
