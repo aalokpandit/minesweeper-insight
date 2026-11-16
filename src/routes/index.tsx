@@ -79,8 +79,9 @@ function Game() {
 
   const [mobileExplain, setMobileExplain] = useState<{ index: number; value: ProbabilityExplanation } | null>(null);
   const tap = useRef<{ index: number; at: number; t?: number }>({ index: -1, at: 0 });
-  const shared = useProbabilityAnalysis(board, cfg.w, cfg.h, cfg.m, (learn || autoClear) && status === "playing");
-  const analysis = learn ? shared : null;
+  const { analysis: latest, fresh } = useProbabilityAnalysis(board, cfg.w, cfg.h, cfg.m, (learn || autoClear) && status === "playing");
+  const shared = fresh ? latest : null;
+  const analysis = learn ? latest : null;
   const safest = useMemo(() => analysis ? safestCells(analysis.probabilities) : new Set<number>(), [analysis]);
   useEffect(() => { setMobileExplain(null); }, [board]);
 
@@ -248,7 +249,7 @@ function Game() {
                     onClick={() => {
                       if (press.current.long) { press.current.long = false; return; }
                       // Touch + Learn Mode: a double tap explains, a single tap reveals after a short wait.
-                      if (press.current.touch && hasP && analysis) {
+                      if (press.current.touch && hasP && analysis && fresh) {
                         const now = Date.now();
                         clearTimeout(tap.current.t);
                         if (tap.current.index === i && now - tap.current.at < 300) {
@@ -270,7 +271,7 @@ function Game() {
                       : hasP && showText ? <span className="text-[0.6em] text-primary-foreground drop-shadow leading-none">{pct}</span> : null}
                   </Button>
                 );
-                return hasP && analysis ? (
+                return hasP && analysis && fresh ? (
                   <CellExplanation key={i} analysis={analysis} index={i} width={cfg.w}>{tile}</CellExplanation>
                 ) : <span key={i} className="contents">{tile}</span>;
               })}

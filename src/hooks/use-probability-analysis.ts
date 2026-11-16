@@ -10,7 +10,7 @@ export function useProbabilityAnalysis(board: Cell[], w: number, h: number, m: n
   const busy = useRef(false);
   const seq = useRef(0);
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) { setState(null); return; }
     const id = ++seq.current;
     if (typeof Worker === "undefined") {
       setState({ board, analysis: buildAnalysis(solveProbabilities(board, w, h, m), board, w, h, m) });
@@ -27,5 +27,7 @@ export function useProbabilityAnalysis(board: Cell[], w: number, h: number, m: n
     worker.current.postMessage({ id, board, w, h, m });
   }, [board, w, h, m, enabled]);
   useEffect(() => () => worker.current?.terminate(), []);
-  return enabled && state?.board === board ? state.analysis : null;
+  // Keep showing the previous heatmap while the new one calculates, so tiles never flash blank.
+  if (!enabled || !state) return { analysis: null, fresh: false };
+  return { analysis: state.analysis, fresh: state.board === board };
 }
