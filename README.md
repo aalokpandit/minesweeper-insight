@@ -22,7 +22,7 @@ Minesweeper web app with **Learn Mode** exact mine-probability heatmaps, cell-le
 
 - **Framework:** TanStack Start (`1.168.60`, SPA mode via `@lovable.dev/vite-tanstack-config`), TanStack Router (`1.170.41`), TanStack Query (`^5.101.1`)
 - **Frontend:** React `^19.2.0`, TypeScript `^5.8.3` (strict + `exactOptionalPropertyTypes` + `noPropertyAccessFromIndexSignature`), Tailwind CSS `^4.2.1` (OKLCH tokens), Radix UI / shadcn (`new-york`), `lucide-react`, `zod`
-- **Build & Test:** Vite `^8.1.5`, Vitest `^4.1.10`, Testing Library (`@testing-library/react`, `jsdom`), ESLint `^9.32.0`, Prettier `^3.7.3`
+- **Build & Test:** Vite `^8.1.6` (resolved `8.4.0`), Vitest `^4.1.10`, Testing Library (`@testing-library/react`, `jsdom`), ESLint `^9.32.0`, Prettier `^3.7.3`
 - **Package Manager:** **`bun`** (`bun.lock`, `bunfig.toml`, and CI all use `bun`; `postbuild` also calls `node -e`)
 
 ## Development Commands (Run with `bun`)
